@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FastCut 快速剪辑</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>FastCut 快速剪辑</h1>
+      <div class="header-right">
+        <div class="modes">
+          <button id="mode-local" class="mode-btn active">本地文件</button>
+          <button id="mode-bili" class="mode-btn">B站外链</button>
+        </div>
+        <button id="btn-settings" class="ghost">设置</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="layout">
+        <div class="left">
+          <section id="view-local" class="view">
+            <div class="file-row">
+              <button id="pick-local">选择文件…</button>
+              <span id="file-name" class="file-name">未选择文件</span>
+              <button id="load-local" disabled>加载</button>
+            </div>
+            <div class="player-wrap">
+              <video id="video" controls></video>
+            </div>
+          </section>
+
+          <section id="view-bili" class="view hidden">
+            <div class="file-row">
+              <input
+                type="text"
+                id="bili-url"
+                placeholder="粘贴 B站视频链接，如 https://www.bilibili.com/video/BVxxxx"
+              />
+              <button id="load-bili">加载播放器</button>
+              <button id="btn-bili-login" class="ghost">登录 B站</button>
+              <span id="login-state" class="login-state">未登录</span>
+              <select id="bili-quality" title="清晰度（切换需重新加载）">
+                <option value="80">1080P</option>
+                <option value="64">720P</option>
+                <option value="32">480P</option>
+                <option value="16">360P</option>
+                <option value="112">1080P+（大会员）</option>
+              </select>
+            </div>
+            <div class="player-wrap bili-wrap">
+              <iframe
+                id="bili-iframe"
+                src=""
+                scrolling="no"
+                border="0"
+                frameborder="no"
+                framespacing="0"
+                allowfullscreen="true"
+              ></iframe>
+            </div>
+            <p class="hint">
+              提示：播放源为直链（可高清晰度），播放后用“设为开始/结束”即可抓取时间点。
+              当前播放进度：<span id="bili-current">0.0s</span>
+            </p>
+          </section>
+
+          <section class="controls">
+            <div class="time-grid">
+              <div>
+                <label>开始时间 (秒)</label>
+                <input type="number" id="start-time" step="0.1" min="0" value="0" />
+              </div>
+              <div>
+                <label>结束时间 (秒)</label>
+                <input type="number" id="end-time" step="0.1" min="0" value="0" />
+              </div>
+              <div class="btns">
+                <button id="btn-set-start">设为开始</button>
+                <button id="btn-set-end">设为结束</button>
+                <button id="btn-preview">预览片段</button>
+              </div>
+            </div>
+            <div class="export-row">
+              <button id="btn-export" disabled>导出剪辑</button>
+              <button id="btn-record" class="ghost">录制片段（内录）</button>
+              <span id="export-status"></span>
+            </div>
+          </section>
+
+          <section class="controls ai-card">
+            <div class="ai-head">
+              <strong>AI 高能片段 <span class="ai-badge">OpenAI 兼容</span></strong>
+              <span id="ai-status" class="ai-status"></span>
+            </div>
+            <div class="ai-row">
+              <input type="text" id="ai-extra" placeholder="补充要求（可选，如：只找搞笑片段，每段不超过60秒）" />
+              <button id="btn-ai">AI 分析字幕</button>
+            </div>
+            <div id="ai-list" class="ai-list">
+              <div class="sub-empty">先生成字幕，再点“AI 分析字幕”挖掘有趣直播内容</div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="sub-panel">
+          <div class="sub-head">
+            <strong>字幕</strong>
+            <span id="sub-count"></span>
+          </div>
+          <button id="btn-asr">生成字幕</button>
+          <div id="asr-status" class="asr-status">未生成</div>
+          <div id="sub-list" class="sub-list">
+            <div class="sub-empty">点击“生成字幕”后在此展示<br />含时间戳的字幕列表</div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <div id="settings-modal" class="modal hidden">
+      <div class="modal-box">
+        <div class="modal-head">
+          <strong>设置</strong>
+          <button id="btn-settings-close" class="ghost">关闭</button>
+        </div>
+        <label class="set-label">AI 服务商</label>
+        <div class="provider-row">
+          <button data-provider="openai" class="provider-btn">OpenAI</button>
+          <button data-provider="deepseek" class="provider-btn">DeepSeek</button>
+          <button data-provider="openrouter" class="provider-btn">OpenRouter</button>
+          <button data-provider="custom" class="provider-btn">自定义</button>
+        </div>
+        <label class="set-label">接口地址（OpenAI 兼容）</label>
+        <input type="text" id="ai-base" placeholder="https://api.openai.com/v1" />
+        <label class="set-label">API Key（仅存本地）</label>
+        <input type="password" id="ai-key" placeholder="sk-..." />
+        <label class="set-label">模型（点右侧按钮从接口拉取列表）</label>
+        <div class="model-row">
+          <input type="text" id="ai-model" list="ai-model-list" placeholder="如 gpt-4o-mini / deepseek-chat" />
+          <datalist id="ai-model-list"></datalist>
+          <button id="btn-models" class="ghost">获取模型</button>
+        </div>
+        <div class="ai-row">
+          <span id="settings-status" class="ai-status"></span>
+          <button id="btn-ai-save">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

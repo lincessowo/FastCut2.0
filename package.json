@@ -1,0 +1,62 @@
+{
+  "name": "fastcut",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "electron .",
+    "setup-python": "powershell -ExecutionPolicy Bypass -File tools/setup-portable-python.ps1",
+    "copy-ffmpeg": "node electron/copy-ffmpeg.js",
+    "pack": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& set ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/&& npm run build && npm run copy-ffmpeg && electron-builder --dir",
+    "dist": "set ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/&& set ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/&& npm run build && npm run copy-ffmpeg && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.fastcut.app",
+    "productName": "FastCut",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "index.html"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/ffmpeg",
+        "to": "ffmpeg"
+      },
+      {
+        "from": "python",
+        "to": "python",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**"
+        ]
+      },
+      {
+        "from": "Qwen3-ASR-GGUF",
+        "to": "Qwen3-ASR-GGUF",
+        "filter": [
+          "**/*",
+          "!**/.git/**",
+          "!**/__pycache__/**",
+          "!**/logs/**",
+          "!**/*.log"
+        ]
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

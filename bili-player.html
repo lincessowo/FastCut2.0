@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>B站播放器</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      #wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+      video { width: 100%; height: 100%; background: #000; }
+    </style>
+    <script src="./player-lib/dash.all.min.js"></script>
+  </head>
+  <body>
+    <div id="wrap"><video id="v" controls autoplay></video></div>
+    <script>
+      const video = document.getElementById("v");
+      let player = null;
+
+      function loadMpd(mpd) {
+        if (player) { try { player.destroy(); } catch (e) {} player = null; }
+        if (window.dashjs) {
+          player = dashjs.MediaPlayer().create();
+          player.initialize(video, mpd, true); // autoplay
+          player.on("error", (e) => parent.postMessage({ type: "bili-error", msg: JSON.stringify(e.error || e) }, "*"));
+          player.on("streamInitialized", () =>
+            parent.postMessage({ type: "bili-ready", dur: video.duration || 0 }, "*")
+          );
+        } else {
+          // 兜底：直接当普通视频（仅单一直链时）
+          video.src = mpd;
+        }
+      }
+
+      // 周期汇报当前时间
+      setInterval(() => {
+        parent.postMessage({ type: "bili-time", time: video.currentTime || 0, dur: video.duration || 0 }, "*");
+      }, 250);
+
+      window.addEventListener("message", (ev) => {
+        const d = ev.data || {};
+        if (d.type === "bili-load") {
+          if (d.mpdBlob) {
+            loadMpd(d.mpdBlob);
+          } else if (d.mpd) {
+            const blob = new Blob([d.mpd], { type: "application/dash+xml" });
+            loadMpd(URL.createObjectURL(blob));
+          }
+          return;
+        }
+        if (d.type === "bili-seek") { try { video.currentTime = d.time; } catch (e) {} }
+        else if (d.type === "bili-play") video.play().catch(() => {});
+        else if (d.type === "bili-pause") pauseVideo();
+        else if (d.type === "bili-record-start") startRecord(d.start, d.end);
+      });
+
+      function pauseVideo() {
+        try { if (player) player.pause(); } catch (e) {}
+        try { video.pause(); } catch (e) {}
+      }
+
+      let recorder = null, recChunks = [], recEnd = 0, recWatch = null, recHardStop = null;
+      function startRecord(start, end) {
+        try {
+          const stream = video.captureStream ? video.captureStream(30) : (video.mozCaptureStream ? video.mozCaptureStream(30) : null);
+          if (!stream) { parent.postMessage({ type: "rec-error", msg: "no captureStream" }, "*"); return; }
+          recorder = new MediaRecorder(stream, { mimeType: "video/webm" });
+          recChunks = [];
+          recorder.ondataavailable = (e) => { if (e.data && e.data.size) recChunks.push(e.data); };
+          recorder.onstop = () => {
+            clearInterval(recWatch);
+            clearTimeout(recHardStop);
+            pauseVideo(); // 录制结束后暂停视频，避免继续播
+            const blob = new Blob(recChunks, { type: "video/webm" });
+            blob.arrayBuffer().then((buf) => {
+              parent.postMessage({ type: "rec-done", buf: Array.from(new Uint8Array(buf)) }, "*");
+            });
+          };
+          recEnd = end;
+          // 用 timeupdate 检测到达结束点（比轮询更可靠）
+          const onTime = () => {
+            if (video.currentTime >= recEnd - 0.05) {
+              video.removeEventListener("timeupdate", onTime);
+              try { recorder.stop(); } catch (e) {}
+            }
+          };
+          video.addEventListener("timeupdate", onTime);
+          recWatch = setInterval(() => {
+            if (video.currentTime >= recEnd - 0.05) {
+              clearInterval(recWatch);
+              try { recorder.stop(); } catch (e) {}
+            }
+          }, 150);
+          // 安全兜底：到点后最多再多录 2 秒强制停止
+          const dur = Math.max(0, end - start);
+          recHardStop = setTimeout(() => {
+            try { recorder.stop(); } catch (e) {}
+          }, (dur + 2) * 1000);
+          video.currentTime = start;
+          setTimeout(() => { video.play(); recorder.start(200); }, 300);
+        } catch (e) {
+          parent.postMessage({ type: "rec-error", msg: e.message }, "*");
+        }
+      }
+    </script>
+  </body>
+</html>

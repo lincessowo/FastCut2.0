@@ -1,0 +1,32 @@
+# 依赖
+node_modules/
+
+# 打包产物
+release/
+dist/
+
+# Electron 运行时 / 缓存
+electron/ffmpeg/
+*.exe
+
+# 便携 Python 3.12.3 运行时（本地已打包，不进仓库；保留脚本源码）
+python/*
+
+# Qwen3-ASR-GGUF（含大体积模型，不进仓库；本地/打包时外置提供）
+Qwen3-ASR-GGUF/
+
+
+# 日志与临时
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# 编辑器 / IDE
+.vscode/
+.idea/
+*.swp
+
+# 环境变量
+.env
+.env.local
