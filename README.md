@@ -37,7 +37,71 @@
 
 ---
 
-## 运行与打包
+## 自行编译
+
+### 1. 便携 Python 3.12.3（含 pip）
+
+项目自带与系统隔离的便携 Python（`python/` 目录，供 AI 接口与 Qwen3-ASR-GGUF 共用），二选一安装：
+
+```bat
+:: 方案 A：一键脚本（便携 Python + pip + 依赖 + ffmpeg + Qwen 模型全自动）
+tools\setup-portable-python.bat
+:: 跳过某一步：powershell -ExecutionPolicy Bypass -File tools\setup-portable-python.ps1 -SkipModels
+```
+
+```powershell
+# 方案 B：手动执行（与脚本等价）
+Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.3/python-3.12.3-embed-amd64.zip" -OutFile "$env:TEMP\py312embed.zip"
+Expand-Archive -Path "$env:TEMP\py312embed.zip" -DestinationPath "python" -Force
+# 放开 python\python312._pth 中的 import site，再追加一行 ..\Qwen3-ASR-GGUF
+# （embed 版是隔离路径，不会自动加载脚本目录，必须加这一行 transcribe 才能被 import）
+Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "$env:TEMP\get-pip.py"
+.\python\python.exe "$env:TEMP\get-pip.py" --no-warn-script-location
+.\python\python.exe -m pip install -U pip setuptools wheel
+```
+
+pip 依赖分两组安装：
+
+```bat
+:: AI 接口依赖（openai / requests）
+.\python\python.exe -m pip install -r python\requirements-ai.txt
+
+:: Qwen3-ASR-GGUF 依赖（去掉 torch；accelerate 用 --no-deps 避免把 torch 拖回来，
+:: torch/accelerate 只在 export/ 模型转换脚本里用，转录推理不需要）
+.\python\python.exe -m pip install "transformers==4.57.6" onnxruntime-directml gguf nagisa librosa soundfile onnxscript srt sentencepiece typer rich
+.\python\python.exe -m pip install accelerate --no-deps
+.\python\python.exe -m pip install psutil
+```
+
+验证：
+
+```bat
+.\python\python.exe --version
+:: 应输出 Python 3.12.3
+.\python\python.exe Qwen3-ASR-GGUF\transcribe.py --help
+```
+
+### 2. ffmpeg
+
+从 https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip 下载 essentials 包，
+解压出 `bin/ffmpeg.exe` 放到 `electron/ffmpeg/ffmpeg.exe`（一键脚本会自动做这步）。
+
+### 3. Qwen3-ASR-GGUF 配置
+
+字幕引擎上游项目：https://github.com/HaujetZhao/Qwen3-ASR-GGUF/
+
+1. 把上游仓库内容放到项目根下的 `Qwen3-ASR-GGUF/`（本仓库 `.gitignore` 已排除该目录，需自行放置）。
+2. 下载下面两个模型包，解压到 `Qwen3-ASR-GGUF/model/`（一键脚本会自动做这步）：
+   - https://github.com/HaujetZhao/Qwen3-ASR-GGUF/releases/download/models/Qwen3-ASR-0.6B-gguf.zip
+   - https://github.com/HaujetZhao/Qwen3-ASR-GGUF/releases/download/models/Qwen3-ForceAligner-0.6B-gguf.zip
+3. 最终文件名须与代码期望一致：
+   - `qwen3_asr_encoder_frontend.int4.onnx` / `qwen3_asr_encoder_backend.int4.onnx`
+   - `qwen3_aligner_encoder_frontend.int4.onnx` / `qwen3_aligner_encoder_backend.int4.onnx`
+   - `qwen3_asr_llm.q5_k.gguf` / `qwen3_aligner_llm.q5_k.gguf`
+   - 注意：程序调用时传 `--prec int4`；若下载的是 `q4_k` 精度的 gguf，把文件名改成 `q5_k` 即可（loader 只读文件头，名字不影响加载）。
+4. 程序按以下顺序查找 Qwen 目录：`FASTCUT_QWEN_DIR` 环境变量 → 项目根下 → 打包后 `resources/` 内 → 安装目录旁，找不到则字幕功能不可用。
+
+### 4. 前端编译与打包
 
 ```bash
 # 安装依赖（国内建议设置镜像加速 Electron 下载）
@@ -47,6 +111,7 @@ npm install
 npm run start
 
 # 打包成安装程序（nsis），输出 release/FastCut Setup x.x.x.exe
+# Qwen3-ASR-GGUF（含 model）与 python/ 会作为 extraResources 打进安装包
 npm run dist
 ```
 
