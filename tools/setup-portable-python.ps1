@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
 # FastCut 一键环境安装脚本（PowerShell）
 # 内容：便携 Python 3.12.3 + pip + 依赖 / ffmpeg / Qwen3-ASR-GGUF 模型
 # 用法：powershell -ExecutionPolicy Bypass -File tools\setup-portable-python.ps1 [-SkipPython] [-SkipFfmpeg] [-SkipModels]
